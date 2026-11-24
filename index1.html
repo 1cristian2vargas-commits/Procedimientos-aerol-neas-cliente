@@ -1,0 +1,1047 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Escáner de Comparendos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+/* Layout: una sola columna tipo app de inspector (móvil primero), barra superior fija con pestañas. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#e9edf3; --line:#d5dbe4;
+  --fg:#152033; --muted:#5b6678; --accent:#24508f; --accent-fg:#ffffff; --navy:#24356b; --green:#6bb334;
+  --head-bg:#24356b; --head-fg:#ffffff; --head-muted:#c5cfe6; --head-accent:#a6dc5e;
+  --ok:#2b8a3e; --ok-bg:#e3f4e6; --warn:#b07a00; --warn-bg:#fff4d1;
+  --grave:#c4520a; --grave-bg:#ffe8d6; --crit:#c92a2a; --crit-bg:#ffe0e0;
+  --info:#1c64b8; --info-bg:#e1ecfb; --inv:#6741d9; --inv-bg:#ece6fd;
+  --pad-bg:#ffffff; --pad-guide:#8a94a6;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1622; --surface:#172131; --surface-2:#1f2b3e; --line:#2c3a50;
+  --fg:#e6ebf2; --muted:#98a3b5; --accent:#6ea8e6; --accent-fg:#0b1a2c; --navy:#9fc3ee; --green:#9fd45a;
+  --head-bg:#1a2650; --head-fg:#eef4fb; --head-muted:#a9c1df; --head-accent:#b5e374;
+  --ok:#69c47a; --ok-bg:#1b3323; --warn:#e8bd4a; --warn-bg:#3a3014;
+  --grave:#ff9a5c; --grave-bg:#3d2414; --crit:#ff7b7b; --crit-bg:#401d1d;
+  --info:#78aef0; --info-bg:#192c47; --inv:#b39cff; --inv-bg:#2a2147; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1622; --surface:#172131; --surface-2:#1f2b3e; --line:#2c3a50;
+  --fg:#e6ebf2; --muted:#98a3b5; --accent:#6ea8e6; --accent-fg:#0b1a2c; --navy:#9fc3ee; --green:#9fd45a;
+  --head-bg:#1a2650; --head-fg:#eef4fb; --head-muted:#a9c1df; --head-accent:#b5e374;
+  --ok:#69c47a; --ok-bg:#1b3323; --warn:#e8bd4a; --warn-bg:#3a3014;
+  --grave:#ff9a5c; --grave-bg:#3d2414; --crit:#ff7b7b; --crit-bg:#401d1d;
+  --info:#78aef0; --info-bg:#192c47; --inv:#b39cff; --inv-bg:#2a2147; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--head-bg)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--head-bg);color:var(--head-fg);border-bottom:4px solid var(--green)}
+.top-in,.main{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top-in{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px 0;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column}
+.marcas{position:absolute;top:8px;right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:center;gap:2px}
+.logo{height:40px;width:auto}
+.mascota{height:40px;width:auto}
+.brand{padding-right:72px;min-width:0;flex:1 1 auto;min-height:84px}
+.brand #db-status{text-transform:none;letter-spacing:0;font-size:12px;font-weight:600}
+.brand b{font-size:17px;letter-spacing:.01em}
+.brand span{font-size:12px;color:var(--head-accent);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.tabs{display:flex;gap:4px;width:100%;margin-top:8px}
+.tab{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:10px 4px;font:inherit;font-weight:600;color:var(--head-muted);cursor:pointer}
+.tab[aria-selected="true"]{color:var(--head-fg);border-color:var(--head-accent)}
+.tab:focus-visible{outline-color:var(--head-accent)!important}
+.panel{border-top:3px solid var(--green)}
+.main{padding-block:18px 48px;display:flex;flex-direction:column;gap:16px}
+.banner{font-size:13px;padding:10px 12px;border-radius:var(--r);background:var(--warn-bg);color:var(--warn)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:600}
+.btn{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:11px 14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.inf:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.big{padding:16px;font-size:17px;width:100%}
+.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1 1 auto;min-width:0}
+label{font-size:13px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+textarea{min-height:70px;resize:vertical}
+.code-in{font-family:var(--font-mono);font-size:18px;letter-spacing:.06em}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.err{font-size:13px;color:var(--crit);margin:0}
+.emp{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center}
+.avatar{width:64px;height:64px;border-radius:10px;background:var(--navy);color:var(--surface);display:grid;place-items:center;font-weight:700;font-size:22px}
+.emp-name{font-size:18px;font-weight:700;margin:0}
+.emp-meta{font-size:13px;color:var(--muted);margin:0}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.saldo{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.saldo-n{font-family:var(--font-mono);font-size:44px;font-weight:600;line-height:1}
+.saldo-n small{font-size:16px;color:var(--muted);font-weight:500}
+.meter{position:relative;height:12px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;border-radius:6px}
+.meter b{position:absolute;top:0;bottom:0;width:2px;background:var(--surface)}
+.ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.chip{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.s-Leve{background:var(--ok-bg);color:var(--ok)}
+.s-Moderada{background:var(--warn-bg);color:var(--warn)}
+.s-Grave{background:var(--grave-bg);color:var(--grave)}
+.s-Crítica{background:var(--crit-bg);color:var(--crit)}
+.s-Matriz{background:var(--info-bg);color:var(--info)}
+.s-Post{background:var(--inv-bg);color:var(--inv)}
+.lv-Normal{background:var(--ok-bg);color:var(--ok)}
+.lv-Micro{background:var(--warn-bg);color:var(--warn)}
+.lv-Reent{background:var(--grave-bg);color:var(--grave)}
+.lv-Reval{background:var(--crit-bg);color:var(--crit)}
+.cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.cat{flex:none;font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer}
+.cat[aria-pressed="true"]{background:var(--navy);color:var(--surface);border-color:var(--navy)}
+.list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
+.inf{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;text-align:left;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;cursor:pointer}
+.inf[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.inf .c{font-family:var(--font-mono);font-weight:600;font-size:13px;color:var(--navy);padding-top:1px}
+.inf .t{font-size:14px;min-width:0}
+.inf .p{font-family:var(--font-mono);font-weight:600;font-size:14px;white-space:nowrap}
+.confirm{border:2px solid var(--accent);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.calc{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:15px}
+.calc .mono{text-align:right}
+.calc .tot{font-weight:700;border-top:1px solid var(--line);padding-top:6px}
+.alert{font-size:14px;padding:10px 12px;border-radius:8px}
+.alert.warn{background:var(--warn-bg);color:var(--warn)}
+.alert.crit{background:var(--crit-bg);color:var(--crit)}
+.alert.inv{background:var(--inv-bg);color:var(--inv)}
+.alert.ok{background:var(--ok-bg);color:var(--ok)}
+.hist{display:flex;flex-direction:column}
+.h{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.h:last-child{border-bottom:0}
+.h .who{font-weight:600;min-width:0}
+.h .what{font-size:13px;color:var(--muted);grid-column:1/-1}
+.h .pts{font-family:var(--font-mono);font-weight:600;text-align:right}
+.h.anulado{opacity:.55}
+.h.anulado .pts{text-decoration:line-through}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:24px 8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.stat b{display:block;font-family:var(--font-mono);font-size:24px}
+.stat span{font-size:12px;color:var(--muted)}
+#cv{display:none}
+.grupo{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.grupo summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;font-weight:600;list-style:none}
+.grupo summary::-webkit-details-marker{display:none}
+.grupo summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:4px;flex:none;transition:transform .15s}
+.grupo[open] summary::after{transform:rotate(-135deg)}
+.grupo[open] summary{border-bottom:1px solid var(--line)}
+.g-t{flex:1;min-width:0}
+.g-n{font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.g-items{display:flex;flex-direction:column;gap:6px;padding:8px}
+.grupo summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:560px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hbars{display:flex;flex-direction:column;gap:10px}
+.hbar{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px}
+.hl{min-width:0;overflow-wrap:anywhere}
+.ht{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;display:block}
+.ht i{display:block;height:100%;border-radius:0 4px 4px 0}
+.hv{font-weight:600;min-width:2.5em;text-align:right}
+.vbars{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;height:170px;align-items:end;border-bottom:1px solid var(--line)}
+.vb{display:flex;flex-direction:column;height:100%;justify-content:flex-end;align-items:center;cursor:default}
+.va{flex:1;width:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.va i{display:block;width:70%;background:var(--accent);border-radius:4px 4px 0 0}
+.vv{font-size:11px;color:var(--muted);margin-bottom:2px}
+.vl{font-size:10px;color:var(--muted);height:16px;line-height:16px;white-space:nowrap}
+.vb:hover i,.hbar:hover .ht i{filter:brightness(1.15)}
+.tab{font-size:14px}
+[hidden]{display:none!important}
+.sum-card{display:flex;flex-direction:column;gap:12px;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:8px;padding:12px;background:var(--bg)}
+.sum-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.sum-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sum-g span{display:block;font-size:12px;color:var(--muted)}
+.sum-g b{font-size:16px}
+.acum{color:var(--navy)!important;font-weight:600}
+.tbl-wrap{overflow-x:auto}
+table.res{width:100%;border-collapse:collapse;font-size:14px}
+table.res th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.res td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.res .n{text-align:right;white-space:nowrap}
+.sig{display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--crit);padding-left:12px}
+.sig-t{font-weight:600}
+.req{color:var(--crit)}
+.pad{position:relative;height:160px;border:1px solid var(--line);border-radius:8px;background:var(--pad-bg);touch-action:none;overflow:hidden}
+.pad canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+.pad .line{position:absolute;left:34px;right:16px;bottom:40px;border-bottom:2px dotted var(--pad-guide);pointer-events:none}
+.pad .x{position:absolute;left:12px;bottom:38px;color:var(--pad-guide);font-weight:700;pointer-events:none}
+.pad .ph{position:absolute;left:0;right:0;top:18px;text-align:center;color:var(--pad-guide);font-size:13px;pointer-events:none}
+.firma-img{max-width:100%;width:260px;background:var(--pad-bg);border:1px solid var(--line);border-radius:6px}
+.detalle{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:8px;padding:10px;font-size:14px}
+.detalle b{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--accent);text-decoration:underline;cursor:pointer;text-align:left}
+details summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.meter i{transition:width .4s ease}}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="marcas"><img class="logo" alt="Talma R&amp;C" src="data:image/png;base64,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"><img class="mascota" alt="SCC" src="data:image/png;base64,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"></div>
+    <div class="brand"><span>Excelencia Operacional · BOG</span><b>Comparendos educativos</b>
+      <span class="chip" id="db-status" style="background:var(--warn-bg);color:var(--warn);align-self:flex-start;margin-top:6px">Conectando…</span></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-scan" aria-selected="true">Escanear</button>
+      <button class="tab" role="tab" id="tab-hist" aria-selected="false">Historial</button>
+      <button class="tab" role="tab" id="tab-dash" aria-selected="false">Tablero</button>
+      <button class="tab" role="tab" id="tab-emp" aria-selected="false">Empleados</button>
+      <button class="tab" role="tab" id="tab-cat" aria-selected="false">Catálogo</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="banner" id="demo-banner" hidden style="background:var(--crit-bg);color:var(--crit);font-weight:600">No hay conexión con la base de datos: lo que registres en esta vista NO se guarda. Abre el enlace publicado en el navegador (Chrome o Safari) con tu sesión de Claude iniciada.</div>
+
+  <!-- ESCANEAR -->
+  <section id="view-scan" style="display:flex;flex-direction:column;gap:16px">
+    <div class="panel" id="scan-panel">
+      <h2>1 · Identificar al empleado</h2>
+      <label class="btn primary big" for="qr-file" style="color:var(--accent-fg)">Escanear carnet con la cámara</label>
+      <input type="file" id="qr-file" accept="image/*" capture="environment" hidden>
+      <p class="hint">Toma una foto del código del carnet: la app lo lee y busca al empleado sola. También puedes escribir el código.</p>
+      <p class="hint" id="wedge-hint" style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--green);flex:none"></span>Lector externo listo: si usas una pistola o lector Bluetooth/USB, solo escanea el carnet; no hay que tocar la pantalla.</p>
+      <form id="code-form" class="row">
+        <input id="code-input" class="code-in" inputmode="numeric" autocomplete="off" placeholder="Código del carnet" aria-label="Código del carnet">
+        <button class="btn" type="submit" style="flex:0 0 auto">Buscar</button>
+      </form>
+      <p class="err" id="scan-err" hidden></p>
+    </div>
+
+    <div class="panel" id="reg-panel" hidden>
+      <h2>Empleado no registrado</h2>
+      <p class="hint">El código <b class="mono" id="reg-code"></b> no existe en la base.</p>
+      <div class="alert warn" id="reg-noadmin" hidden>Solo los líderes de Excelencia Operacional pueden registrar empleados. Pide que lo registren y vuelve a escanear el carnet.</div>
+      <form id="reg-form" style="display:flex;flex-direction:column;gap:10px">
+        <p class="hint" style="margin:0">Se registrará con saldo inicial de 1000 puntos.</p>
+        <label>Nombre completo<input id="reg-nombre" required></label>
+        <div class="row">
+          <label>Cargo<input id="reg-cargo" required></label>
+          <label>Área<select id="reg-area"><option>Rampa</option><option>Pasajeros</option><option>Carga</option><option>Equipos (GSE)</option><option>Supervisión</option><option>Otra</option></select></label>
+        </div>
+        <div class="row"><button class="btn" type="button" id="reg-cancel">Cancelar</button><button class="btn primary" type="submit">Registrar empleado</button></div>
+      </form>
+    </div>
+
+    <div class="panel" id="emp-panel" hidden>
+      <div class="emp">
+        <div class="avatar" id="emp-avatar" aria-hidden="true"></div>
+        <div style="min-width:0">
+          <p class="emp-name" id="emp-name"></p>
+          <p class="emp-meta"><span id="emp-cargo"></span> · <span id="emp-area"></span> · <span class="mono" id="emp-code"></span></p>
+        </div>
+      </div>
+      <p class="hint">Verifica que la persona coincida con la foto del carnet.</p>
+      <div class="alert warn" id="ro-note" hidden>Tienes acceso de consulta: puedes ver saldos e historial, pero no registrar comparendos.</div>
+      <div class="saldo"><div class="saldo-n" id="emp-saldo">1000 <small>/ 1000 pts</small></div><span class="chip" id="emp-level"></span></div>
+      <div>
+        <div class="meter"><i id="emp-meter"></i><b style="left:40%"></b><b style="left:60%"></b><b style="left:80%"></b></div>
+        <div class="ticks"><span>0</span><span>400</span><span>600</span><span>800</span><span>1000</span></div>
+      </div>
+      <div id="emp-recent"></div>
+      <button class="btn" id="emp-toggle" type="button" hidden>Ver historial completo</button>
+      <details id="rec-box" hidden>
+        <summary style="cursor:pointer;font-weight:600">Registrar recuperación de puntos</summary>
+        <form id="rec-form" style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+          <label>Motivo<select id="rec-tipo"><option value="100">Capacitación aprobada (+100)</option><option value="50">90 días sin comparendos (+50)</option></select></label>
+          <label>Soporte o detalle<input id="rec-det" placeholder="Ej. Curso de acople GSE aprobado el 20/11"></label>
+          <p class="err" id="rec-err" hidden></p>
+          <button class="btn primary" type="submit">Registrar recuperación</button>
+        </form>
+      </details>
+      <button class="btn" id="emp-close">Escanear otro carnet</button>
+    </div>
+
+    <div class="panel" id="inf-panel" hidden>
+      <h2>2 · Seleccionar la infracción</h2>
+      <input id="inf-search" placeholder="Buscar por código o palabra (ej. calzos, velocidad, EPP)" aria-label="Buscar infracción">
+      <p class="hint" style="margin:0">Toca una categoría para desplegar sus infracciones, o busca directamente.</p>
+      <div class="cats" id="cats"></div>
+      <div class="list" id="inf-list"></div>
+    </div>
+
+    <div class="panel" id="det-panel" hidden>
+      <h2>3 · Registrar el comparendo</h2>
+      <div id="var-wrap" hidden>
+        <label>Severidad según la matriz de riesgo
+          <select id="var-pts"><option value="25">Leve · 25 pts</option><option value="50">Moderada · 50 pts</option><option value="100">Grave · 100 pts</option></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Posición / vuelo<input id="det-pos" placeholder="Ej. Posición 12 · AV9341"></label>
+      </div>
+      <label>Descripción de lo observado <span id="det-req" class="hint" hidden>(obligatoria para esta infracción)</span><textarea id="det-obs" placeholder="Hechos observados, sin juicios"></textarea></label>
+      <div class="confirm" id="confirm-box"></div>
+
+      <label>OBSERVACIONES<textarea id="det-obs2" placeholder="Comentarios adicionales, versión del empleado, compromisos acordados"></textarea></label>
+
+      <div class="sig">
+        <span class="sig-t"><span class="req">*</span> Firma del empleado</span>
+        <input id="sig-emp-name" placeholder="Nombre completo" aria-label="Nombre completo del empleado">
+        <div class="pad" id="pad-emp"><canvas aria-label="Recuadro para la firma del empleado"></canvas><span class="x">X</span><span class="line"></span><span class="ph">Firme sobre la línea punteada</span></div>
+        <div class="row" style="align-items:center">
+          <label style="flex-direction:row;align-items:center;gap:8px;font-weight:500;color:var(--fg)"><input type="checkbox" id="sig-niega" style="width:auto"> El empleado se negó a firmar</label>
+          <button class="btn" type="button" id="clr-emp" style="flex:0 0 auto;padding:6px 12px;font-size:13px">Borrar firma</button>
+        </div>
+      </div>
+
+      <div class="sig">
+        <span class="sig-t"><span class="req">*</span> Firma de quien elabora</span>
+        <input id="sig-ins-name" placeholder="Nombre completo" aria-label="Nombre completo de quien elabora">
+        <div class="pad" id="pad-ins"><canvas aria-label="Recuadro para la firma de quien elabora"></canvas><span class="x">X</span><span class="line"></span><span class="ph">Firme sobre la línea punteada</span></div>
+        <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="clr-ins" style="flex:0 0 auto;padding:6px 12px;font-size:13px">Borrar firma</button></div>
+      </div>
+      <p class="err" id="det-err" hidden></p>
+      <div class="row"><button class="btn" id="det-cancel">Cancelar</button><button class="btn primary" id="det-ok">Confirmar comparendo</button></div>
+    </div>
+
+    <div class="panel" id="done-panel" hidden>
+      <div class="alert ok" id="done-msg"></div>
+      <div id="done-extra"></div>
+      <div class="row"><button class="btn" id="done-same">Otro comparendo a este empleado</button><button class="btn primary" id="done-new">Escanear otro carnet</button></div>
+    </div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section id="view-hist" hidden style="flex-direction:column;gap:16px">
+    <div class="stats">
+      <div class="stat"><b id="st-total">0</b><span>Comparendos vigentes</span></div>
+      <div class="stat"><b id="st-emp">0</b><span>Personal en la base</span></div>
+      <div class="stat"><b id="st-alert">0</b><span>Bajo 400 pts</span></div>
+    </div>
+    <div class="panel" id="res-panel" hidden>
+      <h2>Resumen por empleado</h2>
+      <p class="hint" style="margin:0">Empleados con comparendos, del saldo más bajo al más alto. Toca un nombre para ver su detalle.</p>
+      <div class="tbl-wrap"><table class="res"><thead><tr><th>Empleado</th><th class="n">Comp.</th><th class="n">Descontado</th><th class="n">Saldo</th></tr></thead><tbody id="res-body"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h2>Historial de comparendos</h2>
+      <label>Empleado
+        <select id="hist-emp"><option value="">Todos los empleados</option></select>
+      </label>
+      <div id="hist-sum"></div>
+      <div class="row">
+        <input id="hist-q" placeholder="Buscar por nombre, código de carnet o infracción" aria-label="Buscar en el historial">
+        <select id="hist-est" aria-label="Filtrar por estado" style="flex:0 0 auto;width:auto"><option value="todos">Todos</option><option value="vigentes">Vigentes</option><option value="anulados">Anulados</option></select>
+      </div>
+      <p class="hint" id="hist-count"></p>
+      <div class="hist" id="hist-list"><p class="empty">Aún no hay comparendos registrados. Escanea un carnet para crear el primero.</p></div>
+    </div>
+  </section>
+
+  <!-- TABLERO -->
+  <section id="view-dash" hidden style="flex-direction:column;gap:16px">
+    <div class="row" style="align-items:center">
+      <h2 style="flex:1 1 auto">Tablero de comparendos</h2>
+      <select id="dash-per" aria-label="Periodo del tablero" style="flex:0 0 auto;width:auto">
+        <option value="30">Últimos 30 días</option><option value="90" selected>Últimos 90 días</option><option value="365">Último año</option><option value="0">Todo</option>
+      </select>
+    </div>
+    <div class="kpis">
+      <div class="stat"><b id="k-comp">0</b><span>Comparendos vigentes</span></div>
+      <div class="stat"><b id="k-pts">0</b><span>Puntos descontados</span></div>
+      <div class="stat"><b id="k-emp">0</b><span>Personas con comparendos</span></div>
+      <div class="stat"><b id="k-crit">0</b><span>Críticos</span></div>
+    </div>
+    <div class="panel"><h2>Comparendos por semana</h2><div id="ch-sem"></div></div>
+    <div class="panel"><h2>Infracciones más frecuentes</h2><div id="ch-inf"></div></div>
+    <div class="panel"><h2>Por severidad</h2><div id="ch-sev"></div></div>
+    <div class="panel"><h2>Por área</h2><div id="ch-area"></div></div>
+    <div class="panel"><h2>Empleados por nivel de saldo</h2><p class="hint" style="margin:0" id="niv-hint">Todos los empleados registrados, con su saldo del año en curso. El saldo se reinicia en 1000 cada 1 de enero (no depende del periodo seleccionado).</p><div id="ch-niv"></div></div>
+  </section>
+
+  <!-- EMPLEADOS -->
+  <section id="view-emp" hidden style="flex-direction:column;gap:16px">
+    <div class="panel" id="emp-add-panel" hidden>
+      <h2>Agregar empleado</h2>
+      <form id="emp-add" style="display:flex;flex-direction:column;gap:10px">
+        <div class="row">
+          <label>Código del carnet<input id="ea-cod" class="code-in" inputmode="numeric" required></label>
+          <label>Nombre completo<input id="ea-nom" required></label>
+        </div>
+        <div class="row">
+          <label>Cargo<input id="ea-car" required></label>
+          <label>Área<select id="ea-area"><option>Rampa</option><option>Pasajeros</option><option>Carga</option><option>Equipos (GSE)</option><option>Supervisión</option><option>Otra</option></select></label>
+        </div>
+        <p class="err" id="ea-err" hidden></p>
+        <button class="btn primary" type="submit">Agregar a la base</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Base de empleados</h2>
+      <input id="emp-q" placeholder="Buscar por nombre, código, cargo o área" aria-label="Buscar empleado">
+      <p class="hint" id="emp-count"></p>
+      <div class="hist" id="emp-list"></div>
+    </div>
+  </section>
+
+  <!-- CATÁLOGO -->
+  <section id="view-cat" hidden style="flex-direction:column;gap:16px">
+    <div class="panel">
+      <h2>Catálogo vigente</h2>
+      <p class="hint" id="cat-count"></p>
+      <div class="list" id="cat-list" style="max-height:none"></div>
+    </div>
+  </section>
+  <canvas id="cv"></canvas>
+</main>
+
+<script>
+const SALDO_INICIAL = 1000;
+const CATALOGO = [
+ ["1-103", "Vehículos y equipos", "Dejar equipos, objetos o insumos en lugares no permitidos, obstaculizando o generando riesgos", "Moderada", 50],
+ ["1-104", "Vehículos y equipos", "Remolcar más equipos de los permitidos o hacerlo indebidamente", "Grave", 100],
+ ["1-105", "Vehículos y equipos", "No realizar el 360 a los equipos enganchados, generando la caída de carga y/o ULD", "Grave", 100],
+ ["1-106", "Vehículos y equipos", "Dejar equipo encendido y abandonado", "Grave", 150],
+ ["1-107", "Vehículos y equipos", "Remolcar la aeronave sin las debidas precauciones (señaleros, indicación de inicio, luces, etc.)", "Crítica", 200],
+ ["1-108", "Vehículos y equipos", "Operar equipos con fallas o en deficientes condiciones que afecten la seguridad de las aeronaves", "Grave", 100],
+ ["1-109", "Vehículos y equipos", "Acoplar un GSE sin las debidas precauciones (hombre guía, paradas de seguridad, cuñas, estabilizadores, protecciones)", "Crítica", 200],
+ ["1-111", "Vehículos y equipos", "Utilizar equipos de tierra para tareas para las cuales no fueron diseñados", "Grave", 100],
+ ["1-201", "Normas y procedimientos", "No señalizar las aeronaves en los sitios de aparcamiento de acuerdo al marshalling de la aerolínea", "Grave", 100],
+ ["1-202", "Normas y procedimientos", "Uso del celular en áreas restringidas (rampa, selección y al conducir vehículos)", "Grave", 100],
+ ["1-203", "Normas y procedimientos", "Incumplimiento de normas de seguridad en rampa que pongan en riesgo al trabajador, compañeros o aeronaves (mallas, regla de los 2\", etc.)", "Grave", 100, "obs"],
+ ["1-204", "Normas y procedimientos", "Incumplimiento de procedimientos internos, del cliente o regulatorios que afecten la calidad del servicio", "Leve", 25, "obs"],
+ ["1-205", "Normas y procedimientos", "No realizar la guía de pasajeros en abordajes y/o desabordajes", "Grave", 100],
+ ["1-206", "Normas y procedimientos", "Prestar servicios para los cuales no está entrenado, capacitado o autorizado", "Grave", 100],
+ ["1-208", "Normas y procedimientos", "No reportar una novedad o condición de riesgo presentada en el desarrollo de sus funciones (ocultamiento comprobado)", "Crítica", 200, "obs"],
+ ["1-210", "Normas y procedimientos", "Otras condiciones que puedan generar riesgo a la seguridad y/o calidad en las operaciones", "Moderada", 50, "obs"],
+ ["A-01", "Movilidad – Conductor", "Conducir en sentido contrario a lo establecido (negligente o temerario)", "Crítica", 200, "obs"],
+ ["A-02", "Movilidad – Conductor", "Colisión con persona", "Crítica", 200, "obs", "acpm"],
+ ["A-03", "Movilidad – Conductor", "Colisión con infraestructura con afectación mayor", "Crítica", 200, "obs", "acpm"],
+ ["A-04", "Movilidad – Conductor", "Conducir excediendo los límites de velocidad en más del 50% de lo establecido", "Crítica", 200],
+ ["A-05", "Movilidad – Conductor", "Obstruir el tránsito de una aeronave", "Crítica", 200],
+ ["A-06", "Movilidad – Conductor", "Incumplir las disposiciones sobre la prelación de paso (negligente o temerario)", "Crítica", 200, "obs"],
+ ["A-07", "Movilidad – Conductor", "Omitir la obligación de detenerse en señal de PARE y/o semáforos encendidos (negligente o temerario)", "Grave", 100, "obs"],
+ ["A-08", "Movilidad – Conductor", "Incumplir las disposiciones sobre adelantamiento (negligente o temerario)", "Grave", 100, "obs"],
+ ["A-09", "Movilidad – Conductor", "Realizar la maniobra de marcha atrás en vías (negligente o temerario)", "Grave", 100, "obs"],
+ ["A-10", "Movilidad – Conductor", "Conducir sin habilitación de pase aeroportuario", "Crítica", 200],
+ ["A-11", "Movilidad – Conductor", "Conducir por zonas no autorizadas", "Grave", 100],
+ ["A-12", "Movilidad – Conductor", "Conducir excediendo los límites de velocidad establecidos", "Grave", 100],
+ ["A-13", "Movilidad – Conductor", "No mantener la distancia de seguridad con el VEAT que le precede (negligente o temerario)", "Grave", 100, "obs"],
+ ["A-14", "Movilidad – Conductor", "Colisión con infraestructura con afectación menor", "Grave", 100, "obs", "acpm"],
+ ["A-15", "Movilidad – Conductor", "No usar el cinturón de seguridad", "Moderada", 50],
+ ["A-16", "Movilidad – Conductor", "Estacionar en zonas no autorizadas (NPA, ERA, ESA)", "Grave", 100],
+ ["A-17", "Movilidad – Conductor", "Conducir con sobrecupo", "Grave", 100],
+ ["A-18", "Movilidad – Conductor", "No verificar que el VEAT se encuentre libre de fugas de combustible, aceite y refrigerante antes de iniciar la operación", "Moderada", 50],
+ ["A-19", "Movilidad – Conductor", "Conducir utilizando equipo de comunicación bidireccional", "Grave", 100],
+ ["A-20", "Movilidad – Conductor", "Portar carné del VEAT (POVP)", "Leve", 25],
+ ["A-21", "Movilidad – Conductor", "Conducir con FOD en el VEAT", "Moderada", 50],
+ ["A-22", "Movilidad – Conductor", "Parar o estacionar en vía de servicio", "Moderada", 50],
+ ["A-23", "Movilidad – Conductor", "Conducir sin luces conforme a la disposición de su uso", "Moderada", 50],
+ ["A-24", "Movilidad – Conductor", "VEAT sin copia del POVP al 200%", "Leve", 25],
+ ["A-25", "Movilidad – Conductor", "Sacar partes del cuerpo fuera del vehículo durante el desplazamiento", "Grave", 100],
+ ["A-26", "Movilidad – Conductor", "No usar EPP", "Moderada", 50],
+ ["A-27", "Movilidad – Conductor", "Cargar calzos / conos en el tractor", "Moderada", 50],
+ ["A-28", "Movilidad – Conductor", "No realizar el preoperacional", "Moderada", 50],
+ ["B-01", "Movilidad – Peatón", "Ingresar a áreas operacionales sin calzado de seguridad", "Moderada", 50],
+ ["B-02", "Movilidad – Peatón", "Ingresar a áreas operacionales sin EPP (tapaoídos, guantes, rodilleras, etc.)", "Moderada", 50],
+ ["B-03", "Movilidad – Peatón", "Ingresar a pista, plataforma o calle de rodaje sin autorización", "Crítica", 200],
+ ["B-04", "Movilidad – Peatón", "Transitar por zonas no autorizadas", "Grave", 100],
+ ["B-05", "Movilidad – Peatón", "Cruzar fuera de los senderos peatonales autorizados", "Moderada", 50],
+ ["B-06", "Movilidad – Peatón", "Permanecer en áreas restringidas sin justificación", "Moderada", 50],
+ ["B-07", "Movilidad – Peatón", "Hacer uso de dispositivos móviles durante el desplazamiento en áreas operativas", "Grave", 100],
+ ["B-08", "Movilidad – Peatón", "No utilizar elementos reflectivos obligatorios", "Moderada", 50],
+ ["B-09", "Movilidad – Peatón", "Utilizar el equipo celular / auriculares mientras transita por pasos peatonales", "Moderada", 50],
+ ["B-10", "Movilidad – Peatón", "Consumo o distribución de alimentos en áreas restringidas", "Moderada", 50],
+ ["B-11", "Movilidad – Peatón", "Uso de prendas no reglamentarias (buzo con capota, pasamontañas)", "Moderada", 50],
+ ["B-12", "Movilidad – Peatón", "Portar elementos ajenos a la operación (maletas, audífonos, cargadores, power bank, perfumes, relojes, etc.)", "Moderada", 50],
+ ["B-13", "Movilidad – Peatón", "Permanecer dentro de los CPE acostados o sentados", "Moderada", 50],
+ ["B-14", "Movilidad – Peatón", "No portar el carné según lo dicta el reglamento", "Moderada", 50],
+ ["B-15", "Movilidad – Peatón", "No acatar las instrucciones impartidas por el personal de seguridad u omitir una inspección", "Grave", 100],
+ ["C-01", "Movilidad – Pasajero", "Subir o descender del vehículo mientras se encuentre en movimiento", "Grave", 100],
+ ["C-02", "Movilidad – Pasajero", "Sacar partes del cuerpo fuera del vehículo durante el desplazamiento", "Grave", 100],
+ ["C-03", "Movilidad – Pasajero", "Arrojar residuos u objetos que puedan generar FOD", "Moderada", 50],
+ ["C-04", "Movilidad – Pasajero", "No acatar las instrucciones impartidas por el conductor o personal de seguridad", "Moderada", 50],
+ ["C-05", "Movilidad – Pasajero", "Abordar un vehículo por zonas no autorizadas", "Moderada", 50],
+ ["C-06", "Movilidad – Pasajero", "No hacer uso del cinturón de seguridad durante el desplazamiento del vehículo", "Moderada", 50],
+ ["C-07", "Movilidad – Pasajero", "Distraer al conductor durante la operación del vehículo", "Moderada", 50],
+ ["C-08", "Movilidad – Pasajero", "No permanecer sentado durante el desplazamiento", "Moderada", 50],
+ ["C-09", "Movilidad – Pasajero", "Transportar objetos que obstruyan la movilidad o evacuación del vehículo", "Leve", 25],
+ ["1-401", "Bioseguridad", "No seguir las prácticas de lavado de manos y uso de elementos de protección bioseguros", "Leve", 25],
+ ["1-402", "Bioseguridad", "No respetar el aforo máximo de personas para el área", "Leve", 25],
+ ["1-403", "Bioseguridad", "No acatar las normas de distanciamiento social", "Leve", 25],
+ ["1-404", "Bioseguridad", "No acatar las normas de orden y aseo dispuestas para evitar riesgos de bioseguridad", "Leve", 25],
+ ["1-405", "Bioseguridad", "No seguir los procedimientos de bioseguridad por tipo de servicio y cliente", "Moderada", 50],
+ ["1-406", "Bioseguridad", "No alertar condiciones que vayan en contra de la bioseguridad", "Leve", 25],
+ ["1-407", "Bioseguridad", "Otra condición que pueda poner en riesgo el mantenimiento de la bioseguridad", "Leve", 25, "obs"]
+].map(([codigo,cat,texto,sev,pts,obs,acpm])=>({codigo,cat,texto,sev,pts,obs:!!obs,acpm:!!acpm}));
+const SEV_LABEL={Matriz:"Según matriz",Post:"Post-investigación"};
+
+const $=id=>document.getElementById(id);
+const el=(tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k==="text")e.textContent=v;else e.setAttribute(k,v)}kids.forEach(k=>k&&e.append(k));return e};
+
+/* ---------- datos ---------- */
+let db=null, me=null, userApi=null, esAdmin=true, puedeRegistrar=true, miNombre="";
+const memEmp=new Map(), memComp=[], memAnul=new Map(), memRec=[], memFirmas=new Map();
+let empleados=new Map(), empDb=new Map(), maestro=new Map(), comparendos=[], anulaciones=new Map(), recuperaciones=[];
+
+function estadoDe(c){return (c.id&&anulaciones.has(c.id))||c.estado==="Anulado"?"Anulado":c.estado}
+const ANIO=new Date().getFullYear();
+function delAnio(f){const d=new Date(f);return !isNaN(d)&&d.getFullYear()===ANIO}
+function saldoDe(codigo){
+  const emp=empleados.get(codigo);
+  const desc=comparendos.filter(c=>c.codigo===codigo&&estadoDe(c)!=="Anulado"&&delAnio(c.fecha)).reduce((s,c)=>s+(c.puntos||0),0);
+  const rec=recuperaciones.filter(r=>r.codigo===codigo&&delAnio(r.fecha)).reduce((s,r)=>s+(r.puntos||0),0);
+  return Math.min(SALDO_INICIAL, SALDO_INICIAL-desc+rec);
+}
+function nivelDe(s){
+  if(s<400) return {t:"Revalidación de competencias",c:"lv-Reval"};
+  if(s<600) return {t:"Carta a la Mejora",c:"lv-Reent"};
+  if(s<800) return {t:"Reentrenamiento",c:"lv-Micro"};
+  return {t:"Normal",c:"lv-Normal"};
+}
+function colorSaldo(s){return s<400?"var(--crit)":s<600?"var(--grave)":s<800?"var(--warn)":"var(--ok)"}
+
+function unirEmpleados(){const m=new Map(maestro);empDb.forEach((v,k)=>{const b=m.get(k);m.set(k,b?{...b,...v,fuente:"base"}:{...v,fuente:"base"})});empleados=m}
+async function guardarEmpleado(emp){
+  if(db){const r=db.collection("empleados").doc(emp.codigo);await r.set(emp);const chk=await r.get();if(!chk.exists)throw new Error("no-verificado")}
+  else{memEmp.set(emp.codigo,emp);empDb=new Map(memEmp);unirEmpleados();renderAll()}
+}
+async function guardarComparendo(c,f){
+  if(db){
+    const r=db.collection("comparendos").doc();await r.set(c);const chk=await r.get();if(!chk.exists)throw new Error("no-verificado");
+    try{await db.collection("firmas").doc(r.id).set(f)}catch(e){throw new Error("firmas")}
+  }else{const id="m"+Date.now();memComp.unshift({...c,id});memFirmas.set(id,f);comparendos=[...memComp];renderAll()}
+}
+async function leerFirmas(id){
+  if(db){const s=await db.collection("firmas").doc(id).get();return s.exists?s.data():null}
+  return memFirmas.get(id)||null;
+}
+function imgSegura(src){return typeof src==="string"&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(src)}
+
+/* ---------- recuadros de firma ---------- */
+function makePad(wrap){
+  const cv=wrap.querySelector("canvas"), ph=wrap.querySelector(".ph");
+  let drawing=false, empty=true, last=null, w=0, h=0;
+  const ctx=()=>cv.getContext("2d");
+  function size(){
+    const r=cv.getBoundingClientRect(); if(!r.width) return;
+    if(Math.round(r.width)===w&&Math.round(r.height)===h) return;
+    const prev=empty?null:cv.toDataURL();
+    w=Math.round(r.width);h=Math.round(r.height);
+    const d=window.devicePixelRatio||1; cv.width=w*d; cv.height=h*d;
+    const c=ctx(); c.setTransform(d,0,0,d,0,0); c.lineWidth=2.2; c.lineCap="round"; c.lineJoin="round"; c.strokeStyle="#0b1a2c"; c.fillStyle="#0b1a2c";
+    if(prev){const im=new Image();im.onload=()=>c.drawImage(im,0,0,w,h);im.src=prev}
+  }
+  const pos=e=>{const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}};
+  cv.addEventListener("pointerdown",e=>{e.preventDefault();size();cv.setPointerCapture(e.pointerId);drawing=true;last=pos(e);const c=ctx();c.beginPath();c.arc(last.x,last.y,1.1,0,Math.PI*2);c.fill();empty=false;ph.hidden=true;wrap.dispatchEvent(new Event("firma"))});
+  cv.addEventListener("pointermove",e=>{if(!drawing) return;e.preventDefault();const p=pos(e),c=ctx();c.beginPath();c.moveTo(last.x,last.y);c.lineTo(p.x,p.y);c.stroke();last=p});
+  const end=()=>{drawing=false};
+  cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+  return {
+    size,
+    clear(){const c=ctx();c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,cv.width,cv.height);c.restore();empty=true;ph.hidden=false},
+    isEmpty:()=>empty,
+    toPNG(){const o=document.createElement("canvas");o.width=500;o.height=160;o.getContext("2d").drawImage(cv,0,0,500,160);return o.toDataURL("image/png")}
+  };
+}
+const padEmp=makePad($("pad-emp")), padIns=makePad($("pad-ins"));
+$("clr-emp").onclick=()=>padEmp.clear(); $("clr-ins").onclick=()=>padIns.clear();
+$("pad-emp").addEventListener("firma",()=>{$("sig-niega").checked=false});
+$("sig-niega").addEventListener("change",e=>{if(e.target.checked)padEmp.clear()});
+window.addEventListener("resize",()=>{if(!$("det-panel").hidden){padEmp.size();padIns.size()}});
+function limpiarFirmas(){padEmp.clear();padIns.clear();$("sig-niega").checked=false;$("det-obs2").value=""}
+async function anular(id,motivo){
+  const a={motivo:motivo.slice(0,500),por:me||null,en:new Date().toISOString()};
+  if(db){await db.collection("anulaciones").doc(id).set(a)}
+  else{memAnul.set(id,a);anulaciones=new Map(memAnul);renderAll()}
+}
+async function guardarRecuperacion(r){
+  if(db){const ref=await db.collection("recuperaciones").add(r);const chk=await ref.get();if(!chk.exists)throw new Error("no-verificado")}
+  else{memRec.unshift({...r,id:"r"+Date.now()});recuperaciones=[...memRec];renderAll()}
+}
+
+/* ---------- escaneo ---------- */
+let actual=null, seleccion=null, catFiltro="Todas";
+function safeCode(s){return String(s||"").trim().replace(/[^0-9A-Za-z\-_.]/g,"").slice(0,40)}
+
+function decodeImage(file){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=async()=>{
+      try{
+        if("BarcodeDetector" in window){
+          try{const sup=await BarcodeDetector.getSupportedFormats();const want=["qr_code","code_128","code_39","ean_13","pdf417","data_matrix"].filter(f=>sup.includes(f));const d=new BarcodeDetector({formats:want.length?want:["qr_code"]});const r=await d.detect(img);if(r[0])return res(r[0].rawValue)}catch(e){}
+        }
+        const cv=$("cv"),ctx=cv.getContext("2d",{willReadFrequently:true});
+        for(const max of [1200,800,1800]){
+          const k=Math.min(1,max/Math.max(img.width,img.height));
+          cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);
+          ctx.drawImage(img,0,0,cv.width,cv.height);
+          const data=ctx.getImageData(0,0,cv.width,cv.height);
+          const r=window.jsQR&&jsQR(data.data,cv.width,cv.height,{inversionAttempts:"attemptBoth"});
+          if(r&&r.data) return res(r.data);
+        }
+        rej(new Error("no-qr"));
+      }catch(e){rej(e)}finally{URL.revokeObjectURL(img.src)}
+    };
+    img.onerror=()=>rej(new Error("img"));
+    img.src=URL.createObjectURL(file);
+  });
+}
+$("qr-file").addEventListener("change",async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  showErr("scan-err","");
+  try{const code=await decodeImage(f);buscar(code)}
+  catch(err){showErr("scan-err","No se encontró un código QR en la foto. Acerca la cámara al carnet, evita reflejos e inténtalo de nuevo, o escribe el código.")}
+});
+$("code-form").addEventListener("submit",e=>{e.preventDefault();buscar($("code-input").value)});
+
+/* Lector externo (USB/Bluetooth, modo teclado): detecta ráfagas rápidas de teclas y busca solo, sin tocar la pantalla */
+let wBuf="",wLast=0,wTmr=null;
+function wFire(){if(wBuf.length>=4){const c=wBuf;wBuf="";buscar(c)}else wBuf=""}
+document.addEventListener("keydown",e=>{
+  const t=e.target;
+  if(t&&t.id!=="code-input"&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+  const now=performance.now();
+  if(now-wLast>80) wBuf="";
+  wLast=now;
+  if(e.key==="Enter"){if(wBuf.length>=4){e.preventDefault();clearTimeout(wTmr);wFire()}return}
+  if(e.key.length===1){wBuf+=e.key;clearTimeout(wTmr);wTmr=setTimeout(()=>{if(performance.now()-wLast>=150)wFire()},200)}
+});
+
+function showErr(id,msg){$(id).textContent=msg;$(id).hidden=!msg}
+function hideFlow(){["reg-panel","emp-panel","inf-panel","det-panel","done-panel"].forEach(i=>$(i).hidden=true)}
+
+function buscar(raw){
+  const code=safeCode(raw);
+  if(!code){showErr("scan-err","Escribe o escanea un código válido.");return}
+  showErr("scan-err","");$("code-input").value=code;
+  hideFlow();seleccion=null;$("scan-panel").hidden=false;
+  const emp=empleados.get(code);
+  if(!emp){actual=null;$("reg-code").textContent=code;$("reg-panel").hidden=false;$("reg-form").hidden=!esAdmin;$("reg-noadmin").hidden=esAdmin;if(esAdmin)$("reg-nombre").focus();return}
+  actual=code;$("scan-panel").hidden=true;verTodo=false;
+  renderEmp();$("emp-panel").hidden=false;$("inf-panel").hidden=!puedeRegistrar;$("ro-note").hidden=puedeRegistrar;renderInf();
+}
+$("reg-cancel").onclick=()=>{hideFlow();$("code-input").value=""};
+$("reg-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const emp={codigo:$("reg-code").textContent,nombre:$("reg-nombre").value.trim(),cargo:$("reg-cargo").value.trim(),area:$("reg-area").value,recuperados:0,creado:new Date().toISOString()};
+  if(!emp.nombre||!emp.cargo) return;
+  try{await guardarEmpleado(emp);empleados.set(emp.codigo,emp);$("reg-form").reset();buscar(emp.codigo)}
+  catch(err){showErr("scan-err","No se pudo registrar el empleado. Verifica que tienes permiso de edición sobre esta página.")}
+});
+function volverAEscanear(){hideFlow();actual=null;seleccion=null;$("scan-panel").hidden=false;$("code-input").value="";window.scrollTo({top:0})}
+$("emp-close").onclick=volverAEscanear;$("done-new").onclick=volverAEscanear;
+$("done-same").onclick=()=>{$("done-panel").hidden=true;$("emp-panel").hidden=false;$("inf-panel").hidden=false;seleccion=null;renderEmp();renderInf()};
+
+/* ---------- render ---------- */
+function iniciales(n){return n.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join("")}
+function renderEmp(){
+  if(!actual) return; const emp=empleados.get(actual); if(!emp) return;
+  const s=saldoDe(actual),nv=nivelDe(s);
+  $("emp-avatar").textContent=iniciales(emp.nombre);
+  $("emp-name").textContent=emp.nombre;$("emp-cargo").textContent=emp.cargo;$("emp-area").textContent=emp.area;$("emp-code").textContent=emp.codigo;
+  $("emp-saldo").innerHTML="";$("emp-saldo").append(String(s)," ",el("small",{text:"/ "+SALDO_INICIAL+" pts · año "+ANIO}));
+  $("emp-level").className="chip "+nv.c;$("emp-level").textContent=nv.t;
+  $("emp-meter").style.width=Math.max(0,s/SALDO_INICIAL*100)+"%";$("emp-meter").style.background=colorSaldo(s);
+  const todos=comparendos.filter(c=>c.codigo===actual), recs=recuperaciones.filter(r=>r.codigo===actual), box=$("emp-recent"); box.innerHTML="";
+  const mostrar=verTodo?todos:todos.slice(0,3);
+  if(todos.length){
+    box.append(el("h2",{text:verTodo?"Historial completo ("+todos.length+" comparendos)":"Últimos comparendos"}));
+    const h=el("div",{class:"hist"});mostrar.forEach(c=>h.append(histRow(c,false)));box.append(h);
+  }else box.append(el("p",{class:"hint",text:"Sin comparendos registrados."}));
+  if(verTodo&&recs.length){
+    box.append(el("h2",{text:"Puntos recuperados",style:"margin-top:10px"}));
+    const h=el("div",{class:"hist"});
+    recs.forEach(r=>{const f=new Date(r.fecha);h.append(el("div",{class:"h"},el("span",{class:"who",text:r.motivo}),el("span",{class:"pts",style:"color:var(--ok)",text:"+"+r.puntos}),el("span",{class:"what",text:(isNaN(f)?"":f.toLocaleString("es-CO",{dateStyle:"medium",timeStyle:"short"}))+(r.detalle?" · "+r.detalle:"")})))});
+    box.append(h);
+  }
+  $("emp-toggle").hidden=!(todos.length>3||recs.length);
+  $("emp-toggle").textContent=verTodo?"Ver solo los últimos":"Ver historial completo";
+  $("rec-box").hidden=!esAdmin;
+}
+let verTodo=false;
+$("emp-toggle").onclick=()=>{verTodo=!verTodo;renderEmp()};
+$("rec-form").addEventListener("submit",async e=>{
+  e.preventDefault();if(!actual) return;
+  const sel=$("rec-tipo");const r={codigo:actual,puntos:Number(sel.value),motivo:sel.options[sel.selectedIndex].text.replace(/\s*\(\+\d+\)/,""),detalle:$("rec-det").value.trim().slice(0,200),por:me||null,fecha:new Date().toISOString()};
+  if(r.detalle.length<5){showErr("rec-err","Escribe el soporte o detalle de la recuperación.");return}
+  showErr("rec-err","");
+  try{await guardarRecuperacion(r);$("rec-det").value="";$("rec-box").open=false;renderEmp()}
+  catch(err){showErr("rec-err","No se pudo registrar. Solo los líderes (Editor) pueden registrar recuperaciones.")}
+});
+function sevChip(sev){return el("span",{class:"chip s-"+sev,text:SEV_LABEL[sev]||sev})}
+function ptsTxt(i){return i.sev==="Matriz"?"25–100":i.sev==="Post"?"ACPM":"−"+i.pts}
+
+function renderCats(){$("cats").hidden=true}
+const gruposAbiertos=new Set();
+function grupoCat(cat,items,abierto,hacerFila,llave){
+  const d=el("details",{class:"grupo"});if(abierto)d.open=true;
+  const sm=el("summary");sm.append(el("span",{class:"g-t",text:cat}),el("span",{class:"g-n",text:items.length+(items.length===1?" infracción":" infracciones")}));
+  d.append(sm);const lst=el("div",{class:"g-items"});items.forEach(i=>lst.append(hacerFila(i)));d.append(lst);
+  if(llave)d.addEventListener("toggle",()=>{d.open?gruposAbiertos.add(llave):gruposAbiertos.delete(llave)});
+  return d;
+}
+function filaInf(i){
+  const b=el("button",{class:"inf",type:"button","aria-pressed":String(seleccion&&seleccion.codigo===i.codigo)},el("span",{class:"c",text:i.codigo}),el("span",{class:"t",text:i.texto}),el("span",{class:"p",text:ptsTxt(i)}));
+  b.onclick=()=>elegir(i);return b;
+}
+function renderInf(){
+  const q=$("inf-search").value.trim().toLowerCase(),box=$("inf-list");box.innerHTML="";
+  if(q){
+    const items=CATALOGO.filter(i=>(i.codigo+" "+i.texto+" "+i.cat).toLowerCase().includes(q));
+    if(!items.length){box.append(el("p",{class:"empty",text:"Ninguna infracción coincide con la búsqueda."}));return}
+    items.forEach(i=>box.append(filaInf(i)));return;
+  }
+  const cats=[...new Set(CATALOGO.map(i=>i.cat))];
+  cats.forEach(c=>{
+    const items=CATALOGO.filter(i=>i.cat===c);
+    const abierto=gruposAbiertos.has("inf:"+c)||(seleccion&&seleccion.cat===c);
+    box.append(grupoCat(c,items,abierto,filaInf,"inf:"+c));
+  });
+}
+$("inf-search").addEventListener("input",renderInf);
+
+function puntosSel(){if(!seleccion) return 0; if(seleccion.sev==="Matriz") return Number($("var-pts").value); return seleccion.pts}
+function elegir(i){
+  seleccion=i;renderInf();
+  $("var-wrap").hidden=i.sev!=="Matriz";$("det-req").hidden=!i.obs;
+  $("det-panel").hidden=false;showErr("det-err","");renderConfirm();
+  const emp=empleados.get(actual);
+  if(emp&&$("sig-emp-name").dataset.para!==actual){$("sig-emp-name").value=emp.nombre;$("sig-emp-name").dataset.para=actual;limpiarFirmas()}
+  if(!$("sig-ins-name").value&&miNombre)$("sig-ins-name").value=miNombre;
+  requestAnimationFrame(()=>{padEmp.size();padIns.size()});
+  $("det-panel").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+}
+$("var-pts").addEventListener("change",renderConfirm);
+function renderConfirm(){
+  const box=$("confirm-box");box.innerHTML="";if(!seleccion||!actual) return;
+  const s=saldoDe(actual),p=puntosSel(),n=s-p;
+  box.append(el("div",{class:"row",style:"align-items:center;justify-content:space-between"},el("b",{class:"mono",text:seleccion.codigo}),sevChip(seleccion.sev)));
+  box.append(el("p",{style:"margin:0;font-size:14px",text:seleccion.texto}));
+  if(seleccion.sev==="Post"){
+    box.append(el("div",{class:"alert inv",text:"Este evento no descuenta puntos al escanear. Queda registrado como caso en investigación ACPM; los puntos se definen solo si la investigación demuestra un incumplimiento individual con controles adecuados."}));
+    return;
+  }
+  const calc=el("div",{class:"calc"});
+  calc.append(el("span",{text:"Saldo actual"}),el("span",{class:"mono",text:String(s)}),el("span",{text:"Descuento"}),el("span",{class:"mono",text:"−"+p}),el("span",{class:"tot",text:"Saldo resultante"}),el("span",{class:"mono tot",text:String(n)}));
+  box.append(calc);
+  if(seleccion.acpm) box.append(el("div",{class:"alert inv",text:"Además del comparendo, este evento debe reportarse para investigación ACPM."}));
+  const antes=nivelDe(s).t,despues=nivelDe(n);
+  if(antes!==despues.t) box.append(el("div",{class:"alert "+(n<600?"crit":"warn"),text:"Cruza un umbral: se activará “"+despues.t+"” y se notificará al supervisor."}));
+}
+$("det-cancel").onclick=()=>{$("det-panel").hidden=true;seleccion=null;renderInf()};
+$("det-ok").onclick=async()=>{
+  if(!seleccion||!actual) return;
+  const obs=$("det-obs").value.trim();
+  if(seleccion.obs&&obs.length<10){showErr("det-err","Describe lo observado (al menos 10 caracteres). Esta infracción lo exige.");return}
+  const obs2=$("det-obs2").value.trim(), niega=$("sig-niega").checked;
+  const nomEmp=$("sig-emp-name").value.trim(), nomIns=$("sig-ins-name").value.trim();
+  if(!nomEmp){showErr("det-err","Escribe el nombre completo del empleado.");return}
+  if(padEmp.isEmpty()&&!niega){showErr("det-err","Falta la firma del empleado. Si se niega a firmar, marca la casilla correspondiente.");return}
+  if(niega&&obs2.length<10){showErr("det-err","El empleado se negó a firmar: déjalo explicado en OBSERVACIONES (al menos 10 caracteres).");return}
+  if(!nomIns){showErr("det-err","Escribe el nombre completo de quien elabora el comparendo.");return}
+  if(padIns.isEmpty()){showErr("det-err","Falta la firma de quien elabora el comparendo.");return}
+  const firmas={empleado:niega?null:padEmp.toPNG(),inspector:padIns.toPNG()};
+  const antes=saldoDe(actual),p=puntosSel();
+  const c={codigo:actual,infraccion:seleccion.codigo,texto:seleccion.texto,severidad:seleccion.sev==="Matriz"?({25:"Leve",50:"Moderada",100:"Grave"})[p]:seleccion.sev,
+    puntos:seleccion.sev==="Post"?0:p,posicion:$("det-pos").value.trim().slice(0,80),observacion:obs.slice(0,1000),
+    estado:seleccion.sev==="Post"?"En investigación":"Emitido",inspector:me||null,fecha:new Date().toISOString(),
+    observaciones:obs2.slice(0,1000),nombreFirmaEmpleado:nomEmp.slice(0,120),empleadoSeNiega:niega,nombreElabora:nomIns.slice(0,120),firmado:true};
+  $("det-ok").disabled=true;
+  try{
+    await guardarComparendo(c,firmas);
+    limpiarFirmas();$("sig-emp-name").dataset.para="";
+    if(db) comparendos=[{...c,id:"pend"},...comparendos];
+    const despues=antes-c.puntos;
+    $("det-pos").value="";$("det-obs").value="";
+    hideFlow();$("done-panel").hidden=false;
+    $("done-msg").textContent=(db?"Guardado en la base compartida. ":"NO GUARDADO (sin conexión a la base). ")+(c.puntos?("Comparendo "+c.infraccion+" registrado. Saldo: "+antes+" → "+despues+" puntos."):("Caso "+c.infraccion+" registrado para investigación ACPM. Sin descuento de puntos."));
+    const ex=$("done-extra");ex.innerHTML="";
+    if(nivelDe(antes).t!==nivelDe(despues).t) ex.append(el("div",{class:"alert "+(despues<600?"crit":"warn"),text:"Acción activada: "+nivelDe(despues).t+". En producción, Power Automate notificaría al supervisor y a Formación."}));
+    ex.append(el("p",{class:"hint",text:"Siguiente paso operativo: retroalimentación inmediata al empleado con el procedimiento correspondiente."}));
+  }catch(err){
+    if(err&&err.message==="firmas"){showErr("det-err","El comparendo quedó guardado, pero las firmas no. Avisa a un líder para dejarlo anotado.");}
+    else showErr("det-err","No se pudo guardar el comparendo. Revisa la conexión o tu permiso de edición e inténtalo de nuevo.")}
+  finally{$("det-ok").disabled=false}
+};
+
+let nombres={};
+const PERMITIR_ANULAR=false; /* la anulación desde la app está deshabilitada */
+function histRow(c,withActions,acum){
+  const emp=empleados.get(c.codigo);
+  const est=estadoDe(c);
+  const row=el("div",{class:"h"+(est==="Anulado"?" anulado":"")});
+  const who=el("span",{class:"who"});
+  if(withActions&&emp){const a=el("button",{type:"button",class:"linkbtn",text:emp.nombre});a.onclick=()=>{show("scan");buscar(c.codigo);window.scrollTo({top:0})};who.append(a," · "+c.infraccion)}
+  else who.textContent=(emp?emp.nombre:"Código "+c.codigo)+" · "+c.infraccion;
+  row.append(who);
+  row.append(el("span",{class:"pts",text:c.puntos?"−"+c.puntos:"0"}));
+  const f=new Date(c.fecha);const fecha=isNaN(f)?"":f.toLocaleString("es-CO",{dateStyle:"medium",timeStyle:"short"});
+  const insp=c.inspector&&nombres[c.inspector]?" · Inspector: "+nombres[c.inspector]:"";
+  row.append(el("span",{class:"what",text:fecha+" · "+est+(c.posicion?" · "+c.posicion:"")+insp}));
+  if(acum) row.append(el("span",{class:"what acum",text:acum}));
+  const an=c.id&&anulaciones.get(c.id);
+  if(an&&an.motivo) row.append(el("span",{class:"what",text:"Motivo de anulación: "+an.motivo+(an.por&&nombres[an.por]?" ("+nombres[an.por]+")":"")}));
+  if(c.id&&c.id!=="pend"){
+    const det=el("div",{class:"detalle",hidden:""});
+    const vb=el("button",{type:"button",class:"linkbtn",text:"Ver detalle y firmas",style:"grid-column:1/-1;font-size:13px"});
+    vb.onclick=async()=>{
+      if(!det.hidden){det.hidden=true;vb.textContent="Ver detalle y firmas";return}
+      det.innerHTML="";det.hidden=false;vb.textContent="Ocultar detalle";
+      const sec=(t,v)=>{if(v)det.append(el("div",{},el("b",{text:t}),el("div",{text:v})))};
+      sec("Infracción",c.texto);sec("Descripción de lo observado",c.observacion);sec("Observaciones",c.observaciones);
+      const carga=el("p",{class:"hint",text:"Cargando firmas…"});det.append(carga);
+      let f=null;try{f=await leerFirmas(c.id)}catch(e){}
+      carga.remove();
+      const firma=(t,nombre,src,extra)=>{const b=el("div",{},el("b",{text:t}));if(imgSegura(src))b.append(el("img",{class:"firma-img",src,alt:"Firma de "+(nombre||t)}));if(extra)b.append(el("div",{class:"hint",text:extra}));if(nombre)b.append(el("div",{text:nombre}));det.append(b)};
+      if(c.firmado){
+        firma("Firma del empleado",c.nombreFirmaEmpleado,f&&f.empleado,c.empleadoSeNiega?"El empleado se negó a firmar.":(!f?"Firma no disponible.":""));
+        firma("Firma de quien elabora",c.nombreElabora,f&&f.inspector,!f?"Firma no disponible.":"");
+      }else det.append(el("p",{class:"hint",text:"Registrado antes de que la app pidiera firmas."}));
+    };
+    row.append(vb,det);
+  }
+  if(PERMITIR_ANULAR&&withActions&&esAdmin&&est!=="Anulado"&&c.id&&c.id!=="pend"){
+    const wrap=el("div",{class:"row",style:"grid-column:1/-1"});
+    const sm="flex:0 0 auto;padding:6px 12px;font-size:13px";
+    const b=el("button",{class:"btn",type:"button",text:"Anular",style:sm});
+    b.onclick=()=>{wrap.innerHTML="";
+      const mot=el("input",{placeholder:"Motivo de la anulación (obligatorio)","aria-label":"Motivo de la anulación",style:"flex:1 1 200px"});
+      const y=el("button",{class:"btn danger",type:"button",text:"Confirmar anulación",style:sm});
+      const n=el("button",{class:"btn",type:"button",text:"Cancelar",style:sm});
+      y.onclick=async()=>{const m=mot.value.trim();if(m.length<10){mot.placeholder="Escribe al menos 10 caracteres";mot.focus();return}y.disabled=true;try{await anular(c.id,m)}catch(e){y.textContent="No se pudo anular";}};
+      n.onclick=renderHist;wrap.append(mot,y,n);mot.focus()};
+    wrap.append(b);row.append(wrap);
+  }
+  return row;
+}
+function filtrados(){
+  const q=$("hist-q").value.trim().toLowerCase(), est=$("hist-est").value, empF=$("hist-emp").value;
+  return comparendos.filter(c=>{
+    if(empF&&c.codigo!==empF) return false;
+    const e=estadoDe(c);
+    if(est==="vigentes"&&e==="Anulado") return false;
+    if(est==="anulados"&&e!=="Anulado") return false;
+    if(!q) return true;
+    const emp=empleados.get(c.codigo);
+    return (c.codigo+" "+(emp?emp.nombre:"")+" "+c.infraccion).toLowerCase().includes(q);
+  });
+}
+function totalesDe(codigo){
+  const vig=comparendos.filter(c=>c.codigo===codigo&&estadoDe(c)!=="Anulado"&&delAnio(c.fecha));
+  const desc=vig.reduce((a,c)=>a+(c.puntos||0),0);
+  const rec=recuperaciones.filter(r=>r.codigo===codigo&&delAnio(r.fecha)).reduce((a,r)=>a+(r.puntos||0),0);
+  return {n:vig.length,desc,rec,saldo:saldoDe(codigo)};
+}
+function acumuladosDe(codigo){
+  /* saldo después de cada comparendo, en orden cronológico */
+  const base=0;
+  const ev=[...comparendos.filter(c=>c.codigo===codigo&&delAnio(c.fecha)).map(c=>({t:c.fecha,c})),...recuperaciones.filter(r=>r.codigo===codigo&&delAnio(r.fecha)).map(r=>({t:r.fecha,r}))].sort((a,b)=>String(a.t).localeCompare(String(b.t)));
+  let desc=0,rec=base;const out={};
+  ev.forEach(e=>{
+    if(e.r){rec+=e.r.puntos||0;return}
+    const c=e.c;
+    if(estadoDe(c)==="Anulado"){out[c.id]="Anulado: no suma al acumulado";return}
+    desc+=c.puntos||0;
+    out[c.id]="Acumulado: −"+desc+" pts · Saldo después: "+Math.min(SALDO_INICIAL,SALDO_INICIAL-desc+rec)+" pts";
+  });
+  return out;
+}
+function codigosConComp(){return [...new Set(comparendos.map(c=>c.codigo))]}
+function llenarSelectEmp(){
+  const sel=$("hist-emp"),v=sel.value;
+  const lista=codigosConComp().map(k=>empleados.get(k)||{codigo:k,nombre:"Código "+k}).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es"));
+  sel.innerHTML="";sel.append(el("option",{value:"",text:"Todos los empleados con comparendos ("+lista.length+")"}));
+  lista.forEach(e=>{const n=totalesDe(e.codigo).n;sel.append(el("option",{value:e.codigo,text:e.nombre+" · "+e.codigo+(n?" · "+n+" comp.":"")}))});
+  sel.value=lista.some(e=>e.codigo===v)?v:"";
+}
+function renderResumen(){
+  const body=$("res-body");body.innerHTML="";
+  const filas=codigosConComp().map(k=>({e:empleados.get(k)||{codigo:k,nombre:"Código "+k},t:totalesDe(k)})).filter(x=>x.t.n>0).sort((a,b)=>a.t.saldo-b.t.saldo);
+  $("res-panel").hidden=!filas.length||!!$("hist-emp").value;
+  filas.slice(0,100).forEach(({e,t})=>{
+    const a=el("button",{type:"button",class:"linkbtn",text:e.nombre});a.onclick=()=>{$("hist-emp").value=e.codigo;renderHist();$("hist-sum").scrollIntoView({block:"start"})};
+    const tdN=el("td");tdN.append(a,el("div",{class:"hint",text:e.codigo}));
+    const tdS=el("td",{class:"n mono",style:"color:"+colorSaldo(t.saldo)+";font-weight:600",text:String(t.saldo)});
+    body.append(el("tr",{},tdN,el("td",{class:"n mono",text:String(t.n)}),el("td",{class:"n mono",text:"−"+t.desc}),tdS));
+  });
+}
+function renderSumario(lista){
+  const box=$("hist-sum");box.innerHTML="";
+  const cod=$("hist-emp").value;
+  if(cod){
+    const e=empleados.get(cod)||{nombre:"Código "+cod},t=totalesDe(cod),nv=nivelDe(t.saldo);
+    const card=el("div",{class:"sum-card"});
+    card.append(el("div",{class:"sum-h"},el("div",{},el("b",{text:e.nombre}),el("div",{class:"hint",text:[e.cargo,e.area,cod].filter(Boolean).join(" · ")})),el("span",{class:"chip "+nv.c,text:nv.t})));
+    const g=el("div",{class:"sum-g"});
+    const k=(lab,val,col)=>g.append(el("div",{},el("span",{text:lab}),el("b",{class:"mono",style:col?"color:"+col:"",text:val})));
+    k("Comparendos vigentes "+ANIO,String(t.n));k("Total descontado","−"+t.desc+" pts");k("Puntos recuperados","+"+t.rec+" pts");k("Le quedan",t.saldo+" / "+SALDO_INICIAL+" pts",colorSaldo(t.saldo));
+    card.append(g);
+    const ab=el("button",{type:"button",class:"btn",text:"Abrir ficha del empleado",style:"align-self:flex-start;padding:8px 12px;font-size:13px"});
+    ab.onclick=()=>{show("scan");buscar(cod);window.scrollTo({top:0})};
+    card.append(ab);box.append(card);
+  }else if(lista.length){
+    const vig=lista.filter(c=>estadoDe(c)!=="Anulado");
+    box.append(el("p",{class:"hint",style:"margin:0",text:"En esta lista: "+vig.length+" comparendo(s) vigente(s) · total descontado −"+vig.reduce((a,c)=>a+(c.puntos||0),0)+" pts"}));
+  }
+}
+function renderHist(){
+  const box=$("hist-list");box.innerHTML="";
+  const vig=comparendos.filter(c=>estadoDe(c)!=="Anulado");
+  $("st-total").textContent=vig.length;$("st-emp").textContent=empleados.size;
+  $("st-alert").textContent=codigosConComp().filter(k=>saldoDe(k)<400).length;
+  llenarSelectEmp();renderResumen();
+  if(!comparendos.length){$("hist-count").textContent="";$("hist-sum").innerHTML="";box.append(el("p",{class:"empty",text:"Aún no hay comparendos registrados. Escanea un carnet para crear el primero."}));return}
+  const lista=filtrados();
+  renderSumario(lista);
+  $("hist-count").textContent=lista.length>200?"Mostrando 200 de "+lista.length+". Afina la búsqueda o descarga el Excel.":lista.length+" resultado(s)";
+  if(!lista.length){box.append(el("p",{class:"empty",text:$("hist-emp").value?"Este empleado no tiene comparendos con estos filtros.":"Ningún comparendo coincide con la búsqueda."}));return}
+  const acum=$("hist-emp").value?acumuladosDe($("hist-emp").value):null;
+  lista.slice(0,200).forEach(c=>box.append(histRow(c,true,acum&&acum[c.id])));
+}
+$("hist-emp").addEventListener("change",renderHist);
+$("hist-q").addEventListener("input",renderHist);$("hist-est").addEventListener("change",renderHist);
+
+function renderCat(){
+  const box=$("cat-list");box.innerHTML="";$("cat-count").textContent=CATALOGO.length+" infracciones.";
+  const fila=i=>el("div",{class:"inf",style:"cursor:default"},el("span",{class:"c",text:i.codigo}),el("span",{class:"t"},document.createTextNode(i.texto+" "),sevChip(i.sev)),el("span",{class:"p",text:ptsTxt(i)}));
+  [...new Set(CATALOGO.map(i=>i.cat))].forEach(c=>box.append(grupoCat(c,CATALOGO.filter(i=>i.cat===c),false,fila,null)));
+}
+/* ---------- tablero ---------- */
+function barras(box,items,opts={}){
+  box.innerHTML="";
+  if(!items.length){box.append(el("p",{class:"empty",text:opts.vacio||"Sin datos en este periodo."}));return}
+  const max=Math.max(...items.map(i=>i.v),1), wrap=el("div",{class:"hbars"});
+  items.forEach(i=>{
+    const tip=i.tip||(i.l+": "+i.v);
+    const row=el("div",{class:"hbar",title:tip,"aria-label":tip});
+    const lab=el("span",{class:"hl"});lab.append(el("b",{class:"mono",text:i.k||""}),document.createTextNode(i.k?" "+i.l:i.l));
+    const tr=el("span",{class:"ht"}),fill=el("i");fill.style.width=(i.v?Math.max(2,i.v/max*100):0)+"%";fill.style.background=i.c||"var(--accent)";tr.append(fill);
+    row.append(lab,tr,el("span",{class:"hv mono",text:String(i.v)+(opts.suf||"")}));
+    wrap.append(row);
+  });
+  box.append(wrap);
+}
+function inicioSemana(d){const x=new Date(d);x.setHours(0,0,0,0);const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x}
+function renderDash(){
+  const dias=Number($("dash-per").value), desde=dias?Date.now()-dias*864e5:0;
+  const lista=comparendos.filter(c=>estadoDe(c)!=="Anulado"&&(!desde||new Date(c.fecha).getTime()>=desde));
+  $("k-comp").textContent=lista.length;
+  $("k-pts").textContent=lista.reduce((a,c)=>a+(c.puntos||0),0);
+  $("k-emp").textContent=new Set(lista.map(c=>c.codigo)).size;
+  $("k-crit").textContent=lista.filter(c=>c.severidad==="Crítica").length;
+  /* semanas: últimas 12 */
+  const box=$("ch-sem");box.innerHTML="";
+  const hoy=inicioSemana(new Date()),sem=[];
+  for(let i=11;i>=0;i--){const d=new Date(hoy);d.setDate(d.getDate()-7*i);sem.push({d,n:0,p:0})}
+  comparendos.filter(c=>estadoDe(c)!=="Anulado").forEach(c=>{const s=inicioSemana(c.fecha).getTime();const b=sem.find(x=>x.d.getTime()===s);if(b){b.n++;b.p+=c.puntos||0}});
+  const mx=Math.max(...sem.map(s=>s.n),1),cols=el("div",{class:"vbars"});
+  sem.forEach((s,i)=>{const f=s.d.toLocaleDateString("es-CO",{day:"2-digit",month:"2-digit"});const tip="Semana del "+f+": "+s.n+" comparendo(s), −"+s.p+" pts";
+    const col=el("div",{class:"vb",title:tip,"aria-label":tip});const bar=el("i");bar.style.height=(s.n?Math.max(4,s.n/mx*100):0)+"%";
+    const val=el("span",{class:"vv mono",text:s.n?String(s.n):""});const lab=el("span",{class:"vl",text:(i%2===1||i===11)?f:""});
+    const area=el("div",{class:"va"});area.append(val,bar);col.append(area,lab);cols.append(col)});
+  box.append(cols,el("p",{class:"hint",style:"margin:6px 0 0",text:"Últimas 12 semanas (lunes a domingo). Pasa el cursor o toca una barra para ver el detalle."}));
+  /* infracciones */
+  const cInf={};lista.forEach(c=>{cInf[c.infraccion]=(cInf[c.infraccion]||{n:0,p:0,t:c.texto});cInf[c.infraccion].n++;cInf[c.infraccion].p+=c.puntos||0});
+  barras($("ch-inf"),Object.entries(cInf).sort((a,b)=>b[1].n-a[1].n).slice(0,8).map(([k,o])=>({k,l:(o.t||"").length>48?(o.t||"").slice(0,46)+"…":(o.t||""),v:o.n,tip:k+" · "+o.t+": "+o.n+" comparendo(s), −"+o.p+" pts"})));
+  /* severidad (orden fijo) */
+  const sevOrd=["Leve","Moderada","Grave","Crítica","Post-investigación"],cSev={};lista.forEach(c=>{const k=c.severidad==="Post"?"Post-investigación":c.severidad;cSev[k]=(cSev[k]||0)+1});
+  barras($("ch-sev"),sevOrd.filter(k=>cSev[k]).map(k=>({l:k,v:cSev[k]})));
+  /* área */
+  const cArea={};lista.forEach(c=>{const a=(empleados.get(c.codigo)||{}).area||"Sin área";cArea[a]=(cArea[a]||0)+1});
+  barras($("ch-area"),Object.entries(cArea).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({l,v})));
+  /* niveles */
+  const niv=[["Normal (800 a 1000)","var(--ok)","Normal"],["Reentrenamiento (600 a 799)","var(--warn)","Reentrenamiento"],["Carta a la Mejora (400 a 599)","var(--grave)","Carta a la Mejora"],["Revalidación de competencias (399 o menos)","var(--crit)","Revalidación de competencias"]],cN={};
+  const cc=codigosConComp();cc.forEach(k=>{const t=nivelDe(saldoDe(k)).t;cN[t]=(cN[t]||0)+1});cN["Normal"]=(cN["Normal"]||0)+Math.max(0,empleados.size-cc.filter(k=>empleados.has(k)).length);
+  barras($("ch-niv"),niv.map(([l,c,k])=>({l,v:cN[k]||0,c})).filter(x=>empleados.size),{vacio:"Aún no hay empleados registrados."});
+}
+$("dash-per").addEventListener("change",renderDash);
+
+/* ---------- base de empleados ---------- */
+async function borrarEmpleado(codigo){
+  if(db){await db.collection("empleados").doc(codigo).delete()}
+  else{memEmp.delete(codigo);empDb=new Map(memEmp);unirEmpleados();renderAll()}
+}
+function renderEmpList(){
+  $("emp-add-panel").hidden=!esAdmin;
+  const q=$("emp-q").value.trim().toLowerCase(),box=$("emp-list");box.innerHTML="";
+  const todos=[...empleados.values()].filter(e=>!q||[e.codigo,e.nombre,e.cargo,e.area].join(" ").toLowerCase().includes(q));
+  const conComp=new Set(codigosConComp());
+  todos.sort((a,b)=>(conComp.has(b.codigo)-conComp.has(a.codigo))||(a.nombre||"").localeCompare(b.nombre||"","es"));
+  const lista=todos.slice(0,100);
+  $("emp-count").textContent=(todos.length>100?"Mostrando 100 de "+todos.length+" coincidencias. Escribe para afinar la búsqueda. ":todos.length+" coincidencia(s). ")+"Personal en la base: "+empleados.size+(maestro.size?" (maestro: "+maestro.size+")":"");
+  if(!empleados.size){box.append(el("p",{class:"empty",text:esAdmin?"Aún no hay empleados. Agrega el primero con el formulario de arriba o escaneando un carnet.":"Aún no hay empleados registrados."}));return}
+  if(!lista.length){box.append(el("p",{class:"empty",text:"Ningún empleado coincide con la búsqueda."}));return}
+  lista.forEach(e=>{
+    const t=totalesDe(e.codigo),nv=nivelDe(t.saldo);
+    const row=el("div",{class:"h"});
+    const nm=el("button",{type:"button",class:"linkbtn",text:e.nombre});nm.onclick=()=>{show("scan");buscar(e.codigo);window.scrollTo({top:0})};
+    row.append(el("span",{class:"who"},nm),el("span",{class:"pts",style:"color:"+colorSaldo(t.saldo),text:t.saldo+" pts"}));
+    row.append(el("span",{class:"what",text:[e.codigo,e.cargo,e.area].filter(Boolean).join(" · ")+" · "+t.n+" comparendo(s)"}));
+    row.append(el("span",{class:"what"},el("span",{class:"chip "+nv.c,text:nv.t})));
+    if(esAdmin){
+      const acc=el("div",{class:"row",style:"grid-column:1/-1"}),sm="flex:0 0 auto;padding:6px 12px;font-size:13px";
+      const be=el("button",{class:"btn",type:"button",text:"Editar",style:sm});
+      const bd=el("button",{class:"btn",type:"button",text:"Eliminar",style:sm});
+      be.onclick=()=>{acc.innerHTML="";
+        const fN=el("input",{"aria-label":"Nombre"});fN.value=e.nombre||"";
+        const fC=el("input",{"aria-label":"Cargo"});fC.value=e.cargo||"";
+        const fA=el("select",{"aria-label":"Área"});["Rampa","Pasajeros","Carga","Equipos (GSE)","Supervisión","Otra"].forEach(o=>fA.append(el("option",{text:o})));fA.value=e.area||"Otra";
+        const ok=el("button",{class:"btn primary",type:"button",text:"Guardar",style:sm}),no=el("button",{class:"btn",type:"button",text:"Cancelar",style:sm});
+        ok.onclick=async()=>{if(!fN.value.trim())return;ok.disabled=true;try{await guardarEmpleado({...e,nombre:fN.value.trim().slice(0,120),cargo:fC.value.trim().slice(0,80),area:fA.value});renderEmpList()}catch(x){ok.textContent="No se pudo guardar"}};
+        no.onclick=renderEmpList;acc.append(fN,fC,fA,ok,no)};
+      bd.onclick=()=>{acc.innerHTML="";
+        if(comparendos.some(c=>c.codigo===e.codigo)){acc.append(el("p",{class:"hint",style:"margin:0",text:"No se puede eliminar: tiene comparendos registrados. Puedes editar sus datos."}));const v=el("button",{class:"btn",type:"button",text:"Entendido",style:sm});v.onclick=renderEmpList;acc.append(v);return}
+        const y=el("button",{class:"btn danger",type:"button",text:"Confirmar eliminación",style:sm}),n=el("button",{class:"btn",type:"button",text:"Cancelar",style:sm});
+        y.onclick=async()=>{y.disabled=true;try{await borrarEmpleado(e.codigo)}catch(x){y.textContent="No se pudo eliminar"}};n.onclick=renderEmpList;acc.append(y,n)};
+      acc.append(be);if(!maestro.has(e.codigo))acc.append(bd);row.append(acc);
+    }
+    box.append(row);
+  });
+}
+$("emp-q").addEventListener("input",renderEmpList);
+$("emp-add").addEventListener("submit",async ev=>{
+  ev.preventDefault();showErr("ea-err","");
+  const codigo=safeCode($("ea-cod").value);
+  if(!codigo){showErr("ea-err","Escribe un código de carnet válido.");return}
+  if(empleados.has(codigo)){showErr("ea-err","Ese código ya está registrado.");return}
+  const emp={codigo,nombre:$("ea-nom").value.trim().slice(0,120),cargo:$("ea-car").value.trim().slice(0,80),area:$("ea-area").value,recuperados:0,creado:new Date().toISOString()};
+  if(!emp.nombre||!emp.cargo){showErr("ea-err","Completa nombre y cargo.");return}
+  try{await guardarEmpleado(emp);empleados.set(codigo,emp);$("emp-add").reset();renderEmpList()}
+  catch(x){showErr("ea-err","No se pudo guardar. Solo los líderes (Editor) pueden agregar empleados.")}
+});
+
+async function resolverNombres(){
+  if(!userApi) return;
+  const ids=[...new Set([...comparendos.map(c=>c.inspector),...[...anulaciones.values()].map(a=>a.por)].filter(Boolean))].filter(id=>!(id in nombres));
+  if(!ids.length) return;
+  try{const ps=await userApi.profiles(ids);ids.forEach(id=>{nombres[id]=(ps[id]&&ps[id].name)||"Inspector"});renderHist()}catch(e){}
+}
+function renderAll(){renderEmp();renderHist();if(!$("view-dash").hidden)renderDash();if(!$("view-emp").hidden)renderEmpList();if(!$("det-panel").hidden)renderConfirm();resolverNombres()}
+
+/* ---------- pestañas ---------- */
+const views={scan:"view-scan",hist:"view-hist",dash:"view-dash",emp:"view-emp",cat:"view-cat"};
+function show(v){for(const[k,id]of Object.entries(views)){const on=k===v;$(id).hidden=!on;$(id).style.display=on?"flex":"";$("tab-"+k).setAttribute("aria-selected",String(on))}if(v==="dash")renderDash();if(v==="emp")renderEmpList()}
+Object.keys(views).forEach(k=>$("tab-"+k).onclick=()=>show(k));
+
+/* ---------- inicio ---------- */
+renderCats();renderInf();renderCat();renderHist();
+(async()=>{
+  const c=window.claude;
+  const offline=(motivo)=>{const b=$("demo-banner");b.hidden=false;const s=$("db-status");s.textContent="Sin conexión · no guarda";s.style.background="var(--crit-bg)";s.style.color="var(--crit)";
+    if(motivo){b.textContent=motivo+" ";const r=el("button",{type:"button",class:"btn",text:"Reintentar",style:"padding:4px 10px;font-size:13px;margin-left:6px"});r.onclick=()=>location.reload();b.append(r)}};
+  const dbErr=e=>{offline();$("demo-banner").textContent="Se perdió la conexión con la base de datos ("+((e&&e.code)||"error")+"). Recarga la página antes de seguir registrando."};
+  if(!c||!c.use){offline("[Código 1] Esta página se abrió fuera de Claude (por ejemplo, un archivo descargado o una vista previa). Abre el enlace https://claude.ai/artifact/Qy5NmkUZaUZgd93dZXBmku en Chrome o Safari con tu sesión de Claude iniciada.");return}
+  try{
+    const [d,u]=await Promise.all([c.use("db"),c.use("user")]);
+    userApi=u; if(u){try{me=await u.id()}catch(e){}}
+    if(!d){offline("[Código 2] Esta vista no tiene acceso a la base de datos. Causas comunes: la abriste dentro de la app de Claude o en una vista previa, no iniciaste sesión, no tienes acceso compartido o rechazaste el permiso de datos. Abre el enlace en Chrome o Safari con tu sesión iniciada y acepta los permisos.");return}
+    esAdmin=u?await u.canEdit():false;
+    if(u){const cw=await u.can("data.write");puedeRegistrar=esAdmin||cw!==false;try{miNombre=(await u.me()).name||""}catch(e){}}
+    renderAll();
+    db=d;{const s=$("db-status");s.textContent="Conectado · guarda en la nube";s.style.background="var(--ok-bg)";s.style.color="var(--ok)"}
+    db.collection("empleados").onSnapshot(s=>{empDb=new Map(s.docs.map(x=>[x.id,x.data()]));unirEmpleados();renderAll()},dbErr);
+    db.collection("maestro").onSnapshot(s=>{const m=new Map();s.docs.forEach(x=>{const d=x.data();(d.items||[]).forEach(it=>{if(Array.isArray(it)&&it[0])m.set(String(it[0]),{codigo:String(it[0]),nombre:String(it[1]||""),cargo:String(it[2]||""),area:"",fuente:"maestro"})})});maestro=m;unirEmpleados();renderAll()},dbErr);
+    db.collection("comparendos").orderBy("fecha","desc").limit(1000).onSnapshot(s=>{comparendos=s.docs.map(x=>({id:x.id,...x.data()}));renderAll()},dbErr);
+    db.collection("anulaciones").onSnapshot(s=>{anulaciones=new Map(s.docs.map(x=>[x.id,x.data()]));renderAll()},dbErr);
+    db.collection("recuperaciones").orderBy("fecha","desc").limit(1000).onSnapshot(s=>{recuperaciones=s.docs.map(x=>({id:x.id,...x.data()}));renderAll()},dbErr);
+  }catch(e){offline("[Código 3] Error al conectar con la base de datos ("+((e&&(e.code||e.message))||"desconocido")+").")}
+})();
+</script>
+
+</body></html>
